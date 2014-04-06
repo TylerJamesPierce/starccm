@@ -16,13 +16,17 @@ import star.keturb.*;
 import star.kwturb.*;
 //import star.scenefile.*;
 import star.common.StarPlot.*;
+import star.energy.*;
+import star.turbulence.*;
+import star.walldistance.*;
+import star.viewfactors.*;
 import star.vis.*;
 //import star.segregatedenergy.*;
 //import star.segregatedflow.*;
 import star.coupledflow.*;
 import star.meshing.*;
 
-public class MyTempDriver extends StarMacro {
+public class run extends StarMacro {
    //declare global variables
    String directoryPost = "/home/aa411/2014/tyler/ss/reve/results/";
    Simulation sim;
@@ -30,7 +34,7 @@ public class MyTempDriver extends StarMacro {
    String simName;
    BufferedWriter bwout = null;
    String[] monitorPlots = {"ForceCoefficientsWindAxis","MomentCoefficientsWindAxis25"};
-   String[] scenes = {"WingFenceVelocityMagnitude","WingRootVelocityMagnitude","WingTipVelocityMagnitude","YPlus3D","CenterlineVelocityMagnitude","CenterlineVelocityVectorField","PressureCoefficient3D","TurbulenceIsoSurface3D","Streamlines"};
+   String[] scenes = {"WingFenceVelocityMagnitude","WingRootVelocityMagnitude","WingTipVelocityMagnitude","YPlus3D","CenterlineVelocityMagnitude","CenterlineVelocityVectorField","PressureCoefficient3D","TurbulenceIsoSurface3D","Streamlines3D"};
    String[] forceTables = {"Accumulated Lift Table All Walls Streamwise","Accumulated Drag Table All Walls Spanwise","Accumulated Drag Table All Walls Streamwise","Accumulated Lift Table All Walls Streamwise","Accumulated Lift Table Wing Only Spanwise","Accumulated Lift Table Wing Only Streamwise"};
    
    public void execute() {
@@ -41,8 +45,6 @@ public class MyTempDriver extends StarMacro {
       simName = sim.getPresentationName();  
       bwout = new BufferedWriter(new FileWriter(resolvePath(directoryPost + simName + "_report.csv")));
       bwout.write("Report Name, Value, Unit, \n");
-      
-      SimulationIterator simIterator = sim.getSimulationIterator();
       
       //Mesh the current simulation if necessary
       MeshPipelineController meshPipelineController_0 = 
@@ -72,7 +74,7 @@ public class MyTempDriver extends StarMacro {
       CartesianCoordinateSystem windAxis = 
             ((CartesianCoordinateSystem) labCordSystm.getLocalCoordinateSystemManager().getObject("WindAxis"));
 
-      windAxis.setBasis0(new DoubleVector(new double[] {1.0, 0.0, 0.0}));
+      windAxis.setBasis0(new DoubleVector(new double[] {1.0, 0.0, 0.0})); //necessary for runStarccm ruby script
 
       // Max steps
       StepStoppingCriterion stepStopper =
@@ -81,8 +83,11 @@ public class MyTempDriver extends StarMacro {
       stepStopper.setMaximumNumberSteps($MaxSteps);
 
         // RUN until other stopping criteria are met
+      sim.clearSolution();
+      sim.initializeSolution(); //run grid sequencing
+      SimulationIterator simIterator = sim.getSimulationIterator();
       simIterator.run();
-
+      sim.saveState(sim.getPresentationName()+".sim");
       Collection<Report>  reports = sim.getReportManager().getObjects();
       try {
         for (Report thisReport : reports) {
@@ -116,40 +121,32 @@ public class MyTempDriver extends StarMacro {
       residualPlot.encode(directoryPost+simName+residualPlot.getPresentationName()+".png");
    
       //Get vector of all scenes:
-      Collection<Scene> colSCN = sim.getSceneManager().getScenes();
+      //Collection<Scene> colSCN = sim.getSceneManager().getScenes();
 
-      if (!colSCN.isEmpty()) {//Make sure scenes exist
-         for (Scene sce : colSCN){//Save all scenes
-            CurrentView currentView = sce.getCurrentView();
+      //if (!colSCN.isEmpty()) {//Make sure scenes exist
+      
+          for (String thisTable : forceTables) { //Save all table data out.
+            AccumulatedForceTable accumulatedForceTable = 
+               ((AccumulatedForceTable) sim.getTableManager().getTable(thisTable));
+            accumulatedForceTable.applyRepresentation(volumeMesh);
+            accumulatedForceTable.extract();
+            accumulatedForceTable.export(resolvePath(directoryPost+simName+thisTable+".csv"), ",");
+          }
+          for (String sceName : scenes){//Save all scenes
+            sim.println(" Getting Scene: "+sceName); 
+      	   Scene sce = sim.getSceneManager().getSceneByName(sceName); 
+	         CurrentView currentView = sce.getCurrentView();
             sce.getDisplayerManager().setRepresentation(volumeMesh);
-            for (String thisScene : scenes) { //check if collection matches string defined at top of file
-                if (sce.getPresentationName().equalsIgnoreCase(thisScene)) {
-                    sce.printAndWait(directoryPost+simName+sce+".png", 1);
-                } 
-            }
-            
-            if (sce.getPresentationName().endsWith("2V")) { //save multiple views
-                LabCoordinateSystem labCS = sim.getCoordinateSystemManager().getLabCoordinateSystem();
-                currentView.setCoordinateSystem(labCS);
-                currentView.setInput(new DoubleVector(new double[] {0.3742647157952055, 6.645032671368789E-4, -0.11884133289981}), new DoubleVector(new double[] {-0.930348673026338, 0.08317114114103613, 0.13116652850372193}), new DoubleVector(new double[] {0.1878009647194752, -0.006620871470954015, 0.9821847900020646}), 0.3474378117482561, 0);
-                sce.printAndWait(directoryPost+simName+sce+"view1.png", 1);
-                currentView.setCoordinateSystem(labCS);
-                currentView.setInput(new DoubleVector(new double[] {1.2978575525898077, -0.6829935572126207, 0.21536757784691607}), new DoubleVector(new double[] {-3.020614659596681, -0.558892249369588, 2.5805068888308664}), new DoubleVector(new double[] {0.4488276085480654, 0.4012835666438491, 0.7984518000146386}), 1.2857588511608762, 0);
-                sce.printAndWait(directoryPost+simName+sce+"view2.png", 1);
-            }
-            
+            //for (String thisScene : scenes) { //check if collection matches string defined at top of file
+                //if (sce.getPresentationName().equalsIgnoreCase(thisScene)) {
+            sce.printAndWait(directoryPost+simName+sce+".png", 1);
+                //} 
+            //}
             if (sce.getPresentationName().endsWith("3D")) { //save 3D scene
                 sce.export3DSceneFileAndWait(resolvePath(directoryPost+simName+sce+".sce"), true);
             }
         }
-    }
-    
-    for (String thisTable : forceTables) {
-            AccumulatedForceTable accumulatedForceTable = 
-      ((AccumulatedForceTable) sim.getTableManager().getTable(thisTable));
-            accumulatedForceTable.extract();
-            accumulatedForceTable.export(resolvePath(directoryPost+simName+thisTable+".csv"), ",");
-    }
+    //}
 
     } catch (Exception e) {
       sim.println("Error during analysis");
@@ -163,4 +160,3 @@ public class MyTempDriver extends StarMacro {
    }
    }
 }
-                                                                         
