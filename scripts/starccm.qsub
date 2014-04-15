@@ -1,36 +1,24 @@
-#!/bin/csh
-## RENAME FOR YOUR JOB
-#PBS -N fs_revE_wb_halfmodel
-#PBS -l nodes=4:ppn=12
-#PBS -l walltime=40:00:00
+#!/bin/csh -f
+#Be sure that there is only ONE starccm .sim file in the directory you submit this script in.
+#PBS -N ss_revE_wb_halfmodel
+#PBS -l nodes=6:ppn=6
+#PBS -l walltime=30:00:00
 #PBS -V
-
-## Put both the stderr and stdout into a single file
 #PBS -j oe
-
-## Load the appropriate environment module.
-module load star-ccm+/8.06.007
-
 set wdir=`pwd`
 #PBS -o $wdir
 cd $PBS_O_WORKDIR
-
 #Set these values for the case
 #Maximum number of iterations to run.
 set MaxSteps=1001
 #Set the CFL number, 1 to 5 is a good range depending on flow conditions. Some cases, high mach number, require
 #a lower number (1) for the first ~100 iterations and then raise the number as the flow develops.
 set CFL=5.0
-set CDLMD_LICENSE_FILE=1999@blackbird.aa.washington.edu
-
 
 # Determine case name from the .sim file in current directory
 #
 set CASE=`ls -f *.sim | sed "s/.sim//g"`
 echo case name is $CASE > $CASE.log
-
-set NPE = `wc -l < $PBS_NODEFILE`
-echo This uses $NPE processors. > $CASE.log
 
 #ADDITIONS FROM STARCCM BATCH FILE
 set wdir=`pwd`
@@ -65,14 +53,14 @@ import star.meshing.*;
 
 public class run extends StarMacro {
    //declare global variables
-   String directoryPost = "/home/tjp644/data/fs/erev/results/";
+   String directoryPost = "/home/aa411/2014/tyler/ss/reve/results/";
    Simulation sim;
    String currentDirectory;
    String simName;
    BufferedWriter bwout = null;
    String[] monitorPlots = {"ForceCoefficientsWindAxis","MomentCoefficientsWindAxis25"};
-   String[] scenes = {"WingRootVelocityMagnitude","WingRoot2VelocityMagnitude","WingRoot3VelocityMagnitude","WingOutboard1VelocityMagnitude","WingOutboard2VelocityMagnitude","WingOutboard3VelocityMagnitude","YPlus3D","MachIsoSurface3D","PressureCoefficient3D","TurbulenceIsoSurface3D","Streamlines3D"};
-   String[] forceTables = {"AccumulatedLiftTableAllWallsStreamwise","AccumulatedDragTableAllWallsSpanwise","AccumulatedDragTableAllWallsStreamwise","AccumulatedLiftTableAllWallsSpanwise","AccumulatedLiftTableWingOnlySpanwise","AccumulatedLiftTableWingOnlyStreamwise"};
+   String[] scenes = {"WingFenceVelocityMagnitude","WingRootVelocityMagnitude","WingTipVelocityMagnitude","YPlus3D","CenterlineVelocityMagnitude","CenterlineVelocityVectorField","PressureCoefficient3D","TurbulenceIsoSurface3D","Streamlines3D"};
+   String[] forceTables = {"Accumulated Lift Table All Walls Streamwise","Accumulated Drag Table All Walls Spanwise","Accumulated Drag Table All Walls Streamwise","Accumulated Lift Table All Walls Streamwise","Accumulated Lift Table Wing Only Spanwise","Accumulated Lift Table Wing Only Streamwise"};
    
    public void execute() {
     try {
@@ -84,10 +72,10 @@ public class run extends StarMacro {
       bwout.write("Report Name, Value, Unit, \n");
       
       //Mesh the current simulation if necessary
-      //MeshPipelineController meshPipelineController_0 = 
-             // sim.get(MeshPipelineController.class);
+      MeshPipelineController meshPipelineController_0 = 
+              sim.get(MeshPipelineController.class);
 
-      //meshPipelineController_0.generateVolumeMesh();
+      meshPipelineController_0.generateVolumeMesh();
       
        //Get Volume Mesh:
       FvRepresentation volumeMesh =
@@ -121,7 +109,6 @@ public class run extends StarMacro {
 
         // RUN until other stopping criteria are met
       sim.clearSolution();
-      
       sim.initializeSolution(); //run grid sequencing
       SimulationIterator simIterator = sim.getSimulationIterator();
       simIterator.run();
@@ -185,6 +172,7 @@ public class run extends StarMacro {
             }
         }
     //}
+
     } catch (Exception e) {
       sim.println("Error during analysis");
     }
@@ -197,9 +185,11 @@ public class run extends StarMacro {
    }
    }
 }
+
 EOF
 
 echo -n "======== Run Started " >> $CASE.log
 date >> $CASE.log
 
-starccm+ -rsh ssh -np $NPE -machinefile $PBS_NODEFILE -batch run.java -exit $CASE.sim >>& $CASE.log
+/share/apps/starccm/STAR-CCM+8.06.007/star/bin/starccm+ -jvmargs "-Xmx4G" -rsh ssh -batchsystem pbs -batch run.java -exit $CASE.sim >>& $CASE.log
+
