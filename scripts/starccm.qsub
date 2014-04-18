@@ -1,6 +1,6 @@
 #!/bin/csh -f
 #Be sure that there is only ONE starccm .sim file in the directory you submit this script in.
-#PBS -N ss_revE_wb_halfmodel
+#PBS -N ss_revE_wbf_a0b0
 #PBS -l nodes=6:ppn=6
 #PBS -l walltime=30:00:00
 #PBS -V
@@ -53,21 +53,24 @@ import star.meshing.*;
 
 public class run extends StarMacro {
    //declare global variables
-   String directoryPost = "/home/aa411/2014/tyler/ss/reve/results/";
+   String directoryPost = "/home/aa411/2014/tyler/ss/wingbodyflaps/results/";
    Simulation sim;
    String currentDirectory;
    String simName;
    BufferedWriter bwout = null;
    String[] monitorPlots = {"ForceCoefficientsWindAxis","MomentCoefficientsWindAxis25"};
    String[] scenes = {"WingFenceVelocityMagnitude","WingRootVelocityMagnitude","WingTipVelocityMagnitude","YPlus3D","CenterlineVelocityMagnitude","CenterlineVelocityVectorField","PressureCoefficient3D","TurbulenceIsoSurface3D","Streamlines3D"};
-   String[] forceTables = {"Accumulated Lift Table All Walls Streamwise","Accumulated Drag Table All Walls Spanwise","Accumulated Drag Table All Walls Streamwise","Accumulated Lift Table All Walls Streamwise","Accumulated Lift Table Wing Only Spanwise","Accumulated Lift Table Wing Only Streamwise"};
+   String[] forceTables = {"Accumulated Lift Table All Walls Streamwise","Accumulated Drag Table All Walls Spanwise","Accumulated Drag Table All Walls Streamwise","Accumulated Lift Table All Walls Spanwise","Accumulated Lift Table Wing Only Spanwise","Accumulated Lift Table Wing Only Streamwise"};
    
    public void execute() {
     try {
       //initialize global variables
       sim = getActiveSimulation();
+      sim.println("here");
       currentDirectory = sim.getSessionDir();
-      simName = sim.getPresentationName();  
+      sim.println(currentDirectory);
+      simName = sim.getPresentationName();
+      sim.println(simName);  
       bwout = new BufferedWriter(new FileWriter(resolvePath(directoryPost + simName + "_report.csv")));
       bwout.write("Report Name, Value, Unit, \n");
       
